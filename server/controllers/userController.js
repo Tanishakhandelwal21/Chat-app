@@ -1,6 +1,7 @@
 import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
+import cloudinary from "../lib/cloudinary.js";
 
 //signup a new user
 export const signup = async (req, res) => {
@@ -28,14 +29,12 @@ export const signup = async (req, res) => {
       bio,
     });
     const token = generateToken(newUser._id);
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: "User created successfully",
-        userData: newUser,
-        token,
-      });
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      userData: newUser,
+      token,
+    });
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ success: false, message: error.message });
@@ -80,15 +79,43 @@ export const login = async (req, res) => {
 //controller to check if user is authenticated
 export const checkAuth = (req, res) => {
   if (req.user) {
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "User is authenticated",
-        user: req.user,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "User is authenticated",
+      user: req.user,
+    });
   }
   return res
     .status(401)
     .json({ success: false, message: "User is not authenticated" });
+};
+
+//controller to update user profile details
+export const updateProfile = async (req, res) => {
+  try {
+    const { profilePic, bio, fullName } = req.body;
+
+    const userId = req.user._id;
+    let updatedUser;
+
+    if (!profilePic) {
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { bio, fullName },
+        { new: true }
+      );
+    } else {
+      const upload = await cloudinary.uploader.upload(profilePic);
+
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { profilePic: upload.secure_url, bio, fullName },
+        { new: true }
+      );
+    }
+    res.json({ success: true, message: "Profile updated successfully", user: updatedUser });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
